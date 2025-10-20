@@ -1,0 +1,20 @@
+{
+  "all": true,
+  "extension": [".ts", ".tsx", ".css"],
+  "exclude": [
+    "dist",
+    "cypress/**",
+    "**/__fixtures__/**",
+    "**/__mocks__/**",
+    "**/__tests__/**",
+    "coverage/**",
+    "**/*.stories.tsx",
+    "**/*.spec.tsx",
+    "**/*.cy.tsx"
+  ],
+  "reporter": ["json", "html"],
+  "instrumenter": "nyc",
+  "sourceMap": false,
+  "check-coverage": false,
+  "instrument": true
+}

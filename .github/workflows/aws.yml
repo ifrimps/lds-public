@@ -1,0 +1,152 @@
+name: Deploy to AWS Amplify
+
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: develop
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE }}
+          aws-region: me-south-1
+
+      - name: Create buildspec.yml
+        run: |
+          cat > amplify.yml << 'EOF'
+          version: 1
+          frontend:
+            phases:
+              preBuild:
+                commands:
+                  - npm ci --cache .npm --prefer-offline
+              build:
+                commands:
+                  - npm run build-storybook
+            artifacts:
+              baseDirectory: storybook-static
+              files:
+                - '**/*'
+            cache:
+              paths:
+                - .npm/**/*
+          EOF
+
+      - name: Get or create Amplify App
+        id: get_or_create_app
+        run: |
+          REPO_URL="https://github.com/${GITHUB_REPOSITORY}"
+          APP_NAME=$(basename "${GITHUB_REPOSITORY}")
+          APP_ID=$(aws amplify list-apps \
+                    --query "apps[?tags.Project == '${APP_NAME}' && tags.Branch == '${GITHUB_REF_NAME}'].appId" \
+                    --output text)
+
+          if [ -z "$APP_ID" ]; then
+            echo "No Amplify app found for ${REPO_URL} and branch ${GITHUB_REF_NAME}. Creating one..."
+            echo "new_app=true" >> $GITHUB_OUTPUT
+            
+            APP_ID=$(aws amplify create-app \
+              --name "${APP_NAME}" \
+              --repository "${REPO_URL}" \
+              --access-token ${{ secrets.GUBTOKEN }} \
+              --tags "Project='${APP_NAME}', Branch='${GITHUB_REF_NAME}'" \
+              --build-spec file://amplify.yml \
+              --platform WEB\
+              --query "app.appId" \
+              --output text)
+            echo "Created new Amplify app with ID: $APP_ID"
+            echo "Adding branch to it: ${GITHUB_REF_NAME}"
+            aws amplify create-branch \
+              --app-id $APP_ID \
+              --branch-name ${GITHUB_REF_NAME} \
+              --framework "React" \
+              --stage PRODUCTION 
+            echo "Branch ${GITHUB_REF_NAME} added to ${APP_NAME} with id: ${APP_ID}"
+          else
+            echo "Found existing Amplify app: $APP_ID, will update it"
+          fi
+          echo "APP_ID=$APP_ID" >> $GITHUB_ENV
+
+      - name: Start deployment
+        run: |
+          BRANCH=${GITHUB_REF_NAME}
+          echo "Starting deployment for branch ${BRANCH} in app $APP_ID"
+
+          # Start a build job directly from source (no ZIP upload needed)
+          JOB_ID=$(aws amplify start-job \
+            --app-id $APP_ID \
+            --branch-name $BRANCH \
+            --job-type RELEASE \
+            --query "jobSummary.jobId" \
+            --output text)
+
+          echo "Started build job with ID: $JOB_ID"
+          echo "JOB_ID=$JOB_ID" >> $GITHUB_ENV
+
+      - name: Wait for deployment completion
+        run: |
+          BRANCH=${GITHUB_REF_NAME}
+          MAX_WAIT=1800  # 30 minutes
+          WAIT_TIME=0
+          SLEEP_INTERVAL=30
+          
+          echo "Waiting for deployment to complete..."
+          
+          while [ $WAIT_TIME -lt $MAX_WAIT ]; do
+            STATUS=$(aws amplify list-jobs \
+              --app-id $APP_ID \
+              --branch-name ${BRANCH} \
+              --max-results 1 \
+              --query "jobSummaries[0].status" \
+              --output text)
+            
+            echo "Deployment status: $STATUS"
+            
+            case $STATUS in
+              "SUCCEED")
+                echo "Deployment completed successfully!"
+                APP_URL=$(aws amplify get-app \
+                  --app-id $APP_ID \
+                  --query "app.defaultDomain" \
+                  --output text)
+                echo "App URL: https://${BRANCH}.${APP_URL}"
+                exit 0
+                ;;
+              "FAILED"|"CANCELLED")
+                echo "Deployment failed with status: $STATUS"
+                aws amplify list-jobs \
+                  --app-id $APP_ID \
+                  --branch-name ${BRANCH} \
+                  --max-results 1 \
+                  --query "jobSummaries[0]" \
+                  --output table
+                exit 1
+                ;;
+              "PENDING"|"PROVISIONING"|"RUNNING")
+                echo "Deployment in progress..."
+                sleep $SLEEP_INTERVAL
+                WAIT_TIME=$((WAIT_TIME + SLEEP_INTERVAL))
+                ;;
+              *)
+                echo "Unknown status: $STATUS"
+                sleep $SLEEP_INTERVAL
+                WAIT_TIME=$((WAIT_TIME + SLEEP_INTERVAL))
+                ;;
+            esac
+          done
+          
+          echo "Deployment timed out after $MAX_WAIT seconds"
+          exit 1

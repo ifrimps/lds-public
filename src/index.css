@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+@import '../tokens/theme-white-label.css';
+@import '../tokens/theme-foo.css';
+
+:root {
+  --color-primary: blue;
+  --color-primary-1: color-mix(in srgb, var(--color-primary), black 10%);
+  --color-secondary: green;
+  --color-secondary-1: color-mix(in srgb, var(--color-secondary), black 10%);
+}
+
+[data-theme='dc'] {
+  --color-primary: red;
+  --color-primary-1: color-mix(in srgb, var(--color-primary), black 10%);
+  --color-secondary: orange;
+  --color-secondary-1: color-mix(in srgb, var(--color-secondary), black 10%);
+}
+
+@theme {
+  --color-*: initial;
+
+  --color-white: white;
+  --color-black: black;
+
+  --color-primary: var(--color-primary);
+  --color-primary-1: var(--color-primary-1);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-1: var(--color-secondary-1);
+}
+
+@import '../tokens/tailwind-theme.css';
