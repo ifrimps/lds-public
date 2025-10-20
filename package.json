@@ -24,7 +24,6 @@
     "test": "cypress run --component && nyc report --reporter=text-summary",
     "test:open": "cypress open --component",
     "chromatic": "dotenv -e .env -- chromatic --project-token=$CHROMATIC_PROJECT_TOKEN",
-    "prepare": "npm run build",
     "tokens:build": "style-dictionary build -c style-dictionary.config.js"
   },
   "dependencies": {
