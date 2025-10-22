@@ -82,7 +82,7 @@
   --spacing-radius-ful: 20px;
 
   /* Color */
-  --color-colors-surface-card-surface: oklch(100% 0 263.28);
+  --color-colors-surface-card-surface: #ffffff;
   --text-color-primary: var(--color-colors-ethel-500);
   --bg-color-colors-body-primary: var(--color-colors-cream-500);
   --bg-color-colors-footer-secondary: var(--color-colors-tan-200);
