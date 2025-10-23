@@ -14,7 +14,7 @@ const Button: React.FC<ButtonProps> = ({
   theme = 'primary',
 }) => {
   const themeStyles = {
-    primary: 'bg-primary text-white hover:bg-primary-1',
+    primary: 'bg-primary hover:bg-primary-1',
     secondary: 'bg-teal-300 text-white hover:bg-teal-700',
   };
 

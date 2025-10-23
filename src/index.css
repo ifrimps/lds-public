@@ -1,6 +1,4 @@
 @import 'tailwindcss';
-@import '../tokens/theme-white-label.css';
-@import '../tokens/theme-foo.css';
 
 :root {
   --color-primary: blue;
@@ -27,5 +25,3 @@
   --color-secondary: var(--color-secondary);
   --color-secondary-1: var(--color-secondary-1);
 }
-
-@import '../tokens/tailwind-theme.css';
